@@ -1,5 +1,6 @@
 ---
 title: "Regresja"
+author: Jakub Myśliwiec, Filip Twardy
 output: html_document
 ---
 

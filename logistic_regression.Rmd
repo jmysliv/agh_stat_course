@@ -1,0 +1,160 @@
+---
+title: "Regresja Logistyczna"
+author: Jakub Myśliwiec, Filip Twardy
+output: html_document
+---
+
+## Zbiór danych
+
+Pracujemy na zbiorze danych Breast Cancer Wisconsin (Diagnostic) Data Set. Zawiera on:
+* 33 kolumny
+* 569 wierszy
+Cechy opisuję właściwości jąder komórkowych widocznych na obrazie FNA piersi. 
+Zbiór zawiera jedną cechę kategoryczną *diagnosis*, która określa czy nowotwór jest
+* złośliwy (M = malignant)
+* łagodny (B = benign)
+
+```{r setup, include=FALSE}
+ds = read.csv('data.csv')
+head(ds)
+```
+
+
+```{r}
+names(ds)
+```
+
+```{r}
+dim(ds)
+# removing last columns as it's full of NA values
+ds = ds[-33]
+dim(ds)
+```
+## Regresja logistyczna
+
+Postanowiliśmy przewidywać wartość diagnozy na podstawie wszystkich pozostałych parametrów, z wyjątkiem *id*. Zaczęliśmy od zakodowania wartości *"M"* jako 1 i *"B"* jako 0.
+```{r}
+ds$outcome[ds$diagnosis=="M"] = 1
+ds$outcome[ds$diagnosis=="B"] = 0
+ds$outcome = as.integer(ds$outcome)
+head(ds)
+```
+
+```{r}
+logistic_fit <- glm(outcome ~ . - id - diagnosis, family = binomial, data = ds, maxit=100)
+summary(logistic_fit)
+```
+
+Jako można zauważyć wszystkie predykatory otrzymały trzy gwiazdki i mają bardzo mały błąd standardowy w porównaniu z estymatorem.
+Następnie postanowiliśmy sprawdzić skuteczność regresji.
+
+```{r}
+probs <- predict(logistic_fit, type = "response")
+head(probs)
+```
+
+```{r}
+predicted <- ifelse(probs >= 0.5, "M", "B")
+head(predicted)
+
+```
+```{r}
+result_table <- table(predicted, ds$diagnosis)
+result_table
+```
+
+```{r}
+(result_table[1, 2] + result_table[2, 1]) / sum(result_table)
+mean(predicted != ds$diagnosis)
+```
+
+Błąd naszej regresji wynosi niecałe *2%*, oznacza to że bardzo dobrze dopasowała się do danych.
+
+## Zbiór testowy i treningowy
+
+Dzielimy zbiór na testowy(25%) i treningowy(75%)
+```{r}
+train_size <- floor(0.75 * nrow(ds))
+set.seed(1999)
+train_ind <- sample(seq_len(nrow(ds)), size = train_size)
+train <- ds[train_ind, ]
+test <- ds[-train_ind, ]
+
+train_fit <- glm(outcome ~ . - id - diagnosis, family = binomial, data = train, maxit=100)
+summary(train_fit)
+```
+
+```{r}
+test_probs <- predict(train_fit, test, type = "response")
+test_predicted <- ifelse(test_probs >= 0.5, "M", "B")
+table(test_predicted, test$diagnosis)
+```
+
+```{r}
+mean(test_predicted != test$diagnosis)
+```
+
+Jak widać skuteczność naszego modelu na zbiorze wynosi *5.5%* co jest również całkiem dobrym wynikiem.
+
+## LDA
+
+```{r}
+library(MASS)
+
+lda_fit <- lda(diagnosis ~  . - id - outcome, data = train)
+lda_fit
+```
+
+```{r}
+lda_predicted <- predict(lda_fit, test)
+table(lda_predicted$class, test$diagnosis)
+```
+
+```{r}
+mean(lda_predicted$class != test$diagnosis)
+```
+
+Jak widać funkja *lda()* uzyskała lepszy wynik na zbiorze testowym niż regresja logistyczna.
+
+## QDA
+
+```{r}
+qda_fit <- qda(diagnosis ~  . - id - outcome, data = train)
+qda_fit
+```
+
+```{r}
+qda_predicted <- predict(qda_fit, test)
+table(qda_predicted$class, test$diagnosis)
+```
+
+```{r}
+mean(qda_predicted$class != test$diagnosis)
+```
+
+Jak widać funkcja *qda()* uzyskała jeszcze lepszy wynik z błędem na poziomie *3.4%*
+
+## KNN
+
+```{r}
+library(class)
+
+train_set <- train[,!names(ds) %in% c("id", "diagnosis", "outcome")]
+test_set <- test[,!names(ds) %in% c("id", "diagnosis", "outcome")]
+
+x = c()
+y = c()
+
+for (i in 1: 30)
+{
+  knn_fit <- knn(train_set, test_set, train$diagnosis, k = i)
+  table(knn_fit, test$diagnosis)
+  x[i] <- i
+  y[i] <- mean(knn_fit != test$diagnosis)
+}
+
+plot(x, y, xlab="k", ylab="Błąd predykcji")
+```
+
+
+Jak widać najmniejszy błąd został uzyskany dla k w okolicach 10. Co ciekawe wraz ze wzrostem wartości parametru k, błąd rośnie.
