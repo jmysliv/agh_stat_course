@@ -1,0 +1,58 @@
+---
+title: "Regresja"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+ds = read.csv('data.csv')
+head(ds)
+```
+
+```{r}
+names(ds)
+```
+```{r}
+dim(ds)
+# removing last columns as it's full of NA values
+ds = ds[-33]
+dim(ds)
+```
+
+
+```{r}
+fit_simple <- lm(radius_mean ~ . - id - diagnosis, data = ds)
+summary(fit_simple)
+```
+## Regresja
+Jak możemy zauważyć Residuals mają praktycznie idealny rozkład normalny z wartościami minimalną i maksymalną minimalnie odbiegającą od 0. Oznacza to, że model dopasował się do danych bardzo dobrze.
+
+```{r}
+coef <- coef(fit_simple)
+abs_coef <- abs(coef)
+sort(abs_coef, decreasing = TRUE)
+```
+
+### Wpły predykatorów
+Jak widać największy wpływ na wynik na odpowiedź ma compactness_mean, jednak różnica pomiedzy nim a następnymi nie jest na tyle znacząca by jednoznacznie stwierdzić, że ma bardzo duży wpływ na odpowiedź.
+
+```{r}
+install.packages("jtools", repos = "http://cran.us.r-project.org")
+install.packages("devtools", repos = "http://cran.us.r-project.org")
+```
+
+```{r}
+devtools::install_github("lionel-/ggstance")
+```
+
+```{r}
+install.packages("broom", repos = "http://cran.us.r-project.org")
+
+```
+
+```{r}
+library(jtools)
+
+
+plot_summs(fit_simple)
+```
+
