@@ -1,0 +1,52 @@
+---
+title: "Lasso"
+author: Jakub Myśliwiec, Filip Twardy
+output: html_document
+---
+
+```{r setup, include=FALSE}
+ds = read.csv('data.csv')
+head(ds)
+```
+
+```{r}
+names(ds)
+```
+
+```{r}
+dim(ds)
+# removing last columns as it's full of NA values
+ds = ds[-33]
+dim(ds)
+```
+
+
+```{r}
+X <- model.matrix(radius_mean ~ . - id - diagnosis, data = ds)[, -1]
+y <- ds$radius_mean
+set.seed(1)
+n <- nrow(X)
+train <- sample(n, n / 2)
+test <- -train
+```
+
+```{r}
+library(glmnet)
+fit_lasso <-  glmnet(X[train,], y[train], alpha = 1)
+```
+
+```{r}
+cv_out <- cv.glmnet(X[train,], y[train], alpha = 1)
+plot(cv_out)
+cv_out$lambda.min
+pred_lasso <- predict(fit_lasso, s = cv_out$lambda.min, newx = X[test,])
+mean((pred_lasso - y[test])^2)
+```
+Jak widzimy optymalna wielkość lambda jest około -3.5, a ilość cech to 8, a możliwa ilośc to także 6.
+
+
+```{r}
+fit_lasso_full <- glmnet(X, y, alpha = 1)
+predict(fit_lasso_full, s = cv_out$lambda.min, type = "coefficients")[1:30,]
+```
+

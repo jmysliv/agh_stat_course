@@ -1,0 +1,211 @@
+---
+title: "Wybór cech"
+author: Jakub Myśliwiec, Filip Twardy
+output: html_document
+---
+
+```{r}
+ds = read.csv('data.csv')
+ds = ds[-33]
+head(ds)
+```
+
+```{r}
+summary(ds)
+```
+
+Wykonujemy selekcje cech dla wszystkich danych poza, id, diagnosis ponieaważ nie są one istotne w naszym rozumowaniu.
+
+```{r}
+library(leaps)
+ds_bs = regsubsets(radius_mean ~ . - id -diagnosis, data = ds, nvmax = 29)
+```
+
+```{r}
+ds_bs_sm <- summary(ds_bs)
+ds_bs_sm
+```
+
+Sprawdzamy wyniki dla wskaznika *bic*
+
+```{r}
+bic_min = which.min(ds_bs_sm$bic)
+```
+
+```{r}
+ds_bs_sm$bic[bic_min]
+```
+
+```{r}
+plot(ds_bs_sm$bic, xlab = "Liczba zmiennych", ylab = "BIC", col = "green", type = "b", pch = 20)
+points(bic_min, ds_bs_sm$bic[bic_min], col = "red", pch = 9)
+```
+
+```{r}
+plot(ds_bs, scale = "bic")
+```
+
+Teraz sprawdzamy dla wskaźnika *cp*
+
+```{r}
+cp_min = which.min(ds_bs_sm$cp)
+```
+
+```{r}
+ds_bs_sm$cp[cp_min]
+```
+
+```{r}
+plot(ds_bs_sm$cp, xlab = "Liczba zmiennych", ylab = "CP", col = "green", type = "b", pch = 20)
+points(cp_min, ds_bs_sm$cp[cp_min], col = "red", pch = 9)
+```
+
+```{r}
+rss_min = which.min(ds_bs_sm$rss)
+```
+
+```{r}
+ds_bs_sm$rss[rss_min]
+```
+
+```{r}
+plot(ds_bs_sm$rss, xlab = "Liczba zmiennych", ylab = "RSS", col = "green", type = "b", pch = 20)
+```
+
+Wszystkie wykresy razem z *adjr2*
+
+```{r}
+par(mfrow = c(2,2))
+plot(ds_bs_sm$rss, xlab = "Number of Variables", ylab = "RSS", type = "l")
+plot(ds_bs_sm$adjr2, xlab = "Number of Variables", ylab = "Adjusted RSq", type = "l")
+
+adj_r2_max = which.max(ds_bs_sm$adjr2) # 11
+
+points(adj_r2_max, ds_bs_sm$adjr2[adj_r2_max], col ="red", cex = 2, pch = 20)
+
+plot(ds_bs_sm$cp, xlab = "Number of Variables", ylab = "Cp", type = "l")
+cp_min = which.min(ds_bs_sm$cp) # 10
+points(cp_min, ds_bs_sm$cp[cp_min], col = "red", cex = 2, pch = 20)
+
+plot(ds_bs_sm$bic, xlab = "Number of Variables", ylab = "BIC", type = "l")
+bic_min = which.min(ds_bs_sm$bic) # 6
+points(bic_min, ds_bs_sm$bic[bic_min], col = "red", cex = 2, pch = 20)
+```
+
+Jak widzimy dla wskaźnika *cp* odpowiednia ilość cech to 18, a dla *bic* 14.
+
+```{r}
+coef(ds_bs, id = 14)
+```
+
+```{r}
+coef(ds_bs, id = 18)
+```
+
+Następnie dokonujemy selekcji cech dla metody krokowej
+
+```{r}
+ds_bs_fwd = regsubsets(radius_mean ~ . - id -diagnosis, data = ds, nvmax = 29, method = "forward")
+ds_bs_fwd_sm = summary(ds_bs_fwd)
+
+ds_bs_back = regsubsets(radius_mean ~ . - id -diagnosis, data = ds, nvmax = 29, method = "backward")
+ds_bs_back_sm = summary(ds_bs_back)
+```
+
+```{r}
+ds_bs_fwd_sm
+```
+
+```{r}
+ds_bs_back_sm
+```
+
+Tak samo jak dla metody wszystkich podzbiorów sprawdzmy wyniki wskaźników
+
+Dla metody w przód:
+
+```{r}
+
+par(mfrow = c(2,2))
+plot(ds_bs_fwd_sm$rss, xlab = "Number of Variables", ylab = "RSS", type = "l")
+plot(ds_bs_fwd_sm$adjr2, xlab = "Number of Variables", ylab = "Adjusted RSq", type = "l")
+
+adj_r2_max = which.max(ds_bs_fwd_sm$adjr2) # 11
+
+points(adj_r2_max, ds_bs_fwd_sm$adjr2[adj_r2_max], col ="red", cex = 2, pch = 20)
+
+plot(ds_bs_fwd_sm$cp, xlab = "Number of Variables", ylab = "Cp", type = "l")
+cp_min = which.min(ds_bs_fwd_sm$cp) # 10
+points(cp_min, ds_bs_fwd_sm$cp[cp_min], col = "red", cex = 2, pch = 20)
+
+plot(ds_bs_fwd_sm$bic, xlab = "Number of Variables", ylab = "BIC", type = "l")
+bic_min = which.min(ds_bs_fwd_sm$bic) # 6
+points(bic_min, ds_bs_fwd_sm$bic[bic_min], col = "red", cex = 2, pch = 20)
+```
+
+Dla metody w tył:
+
+```{r}
+par(mfrow = c(2,2))
+plot(ds_bs_back_sm$rss, xlab = "Number of Variables", ylab = "RSS", type = "l")
+plot(ds_bs_back_sm$adjr2, xlab = "Number of Variables", ylab = "Adjusted RSq", type = "l")
+
+adj_r2_max = which.max(ds_bs_back_sm$adjr2) # 11
+
+points(adj_r2_max, ds_bs_back_sm$adjr2[adj_r2_max], col ="red", cex = 2, pch = 20)
+
+plot(ds_bs_back_sm$cp, xlab = "Number of Variables", ylab = "Cp", type = "l")
+cp_min = which.min(ds_bs_back_sm$cp) # 10
+points(cp_min, ds_bs_back_sm$cp[cp_min], col = "red", cex = 2, pch = 20)
+
+plot(ds_bs_back_sm$bic, xlab = "Number of Variables", ylab = "BIC", type = "l")
+bic_min = which.min(ds_bs_back_sm$bic) # 6
+points(bic_min, ds_bs_back_sm$bic[bic_min], col = "red", cex = 2, pch = 20)
+```
+
+Jak widzimy wszystkie 3 metody zwróciły inne wyniki, jednak nie odstają one znacznie od siebie.
+
+Wykonamy jescze wybór cech modelu metodą zbioru walidacyjnego
+
+```{r}
+n <- nrow(ds)
+train <- sample(c(TRUE, FALSE), n, replace = TRUE)
+test <- !train
+ds_bs <- regsubsets(radius_mean ~ . - id - diagnosis, data = ds[train,], nvmax = 29)
+ds_bs_fwd <- regsubsets(radius_mean ~ . - id - diagnosis, data = ds[train,], nvmax = 29, method = "forward")
+ds_bs_back <- regsubsets(radius_mean ~ . - id - diagnosis, data = ds[train,], nvmax = 29, method = "backward")
+```
+
+```{r}
+predict.regsubsets <- function(object, newdata, id, ...) {
+  model_formula <- as.formula(object$call[[2]])
+  mat <- model.matrix(model_formula, newdata)
+  coefs <- coef(object, id = id)
+  mat[, names(coefs)] %*% coefs
+}
+prediction_error <- function(i, model, subset) {
+  pred <- predict(model, ds[subset,], id = i)
+  mean((ds$radius_mean[subset] - pred)^2)
+}
+```
+
+```{r}
+val_errors <- sapply(1:19, prediction_error, model = ds_bs, subset = test)
+val_errors_fwd <- sapply(1:19, prediction_error, model = ds_bs_fwd, subset = test)
+val_errors_back <- sapply(1:19, prediction_error, model = ds_bs_back, subset = test)
+```
+
+```{r}
+print("All subsets")
+print(val_errors)
+print(which.min(val_errors))
+print("--------------------")
+print("Forward")
+print(val_errors_fwd)
+print(which.min(val_errors_fwd))
+print("--------------------")
+print("Backward")
+print(val_errors_back)
+print(which.min(val_errors_back))
+print("--------------------")
+```
