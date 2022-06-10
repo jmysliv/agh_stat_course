@@ -1,0 +1,146 @@
+---
+title: "Drzewo decyzyjne"
+author: Jakub Myśliwiec, Filip Twardy
+output: html_document
+---
+
+## Przygotowanie danych
+
+```{r}
+ds = read.csv('data.csv')
+head(ds)
+```
+```{r}
+dim(ds)
+# removing last columns as it's full of NA values
+ds = ds[-33]
+dim(ds)
+```
+```{r}
+ds$diagnosis = as.factor(ds$diagnosis)
+head(ds)
+```
+
+## Drzewa klasyfikacyjne
+
+```{r}
+install.packages("tree", repos = "http://cran.us.r-project.org")
+library(tree)
+```
+
+
+```{r}
+diagnosis_tree <- tree(diagnosis ~ . - id - diagnosis, data = ds)
+summary(diagnosis_tree)
+```
+Jak widać spośród 32 cech, w predykcji udział bierze tylko 8:
+* perimeter_worst
+* concave.points_worst
+* radius_se
+* texture_worst
+* symetry_worst
+* smoothness_worst
+* radius_mean
+* smoothness_mean
+
+Osiągnięty błąd na zbiorze treningowym jest bardzo dobry i wynosi poniżej 2%.
+
+Drzewo jest całkiem małe jak na wielkość zbioru bo ma tylko 12 liści.
+
+```{r}
+plot(diagnosis_tree)
+text(diagnosis_tree, pretty = 0)
+```
+```{r}
+diagnosis_tree
+```
+
+Można zauważyć kilka ciekawych zjawisk jak naprzykład to, że węzęł 8 został podzielony na liście 16 i 17, i oba te liście zostały sklasyfikowane jako Benign. Z punktu klasyfikacji wydaję się to nie potrzebne, ale pozwoliło to zooptymalizować *deviance*, bo w liściu 16, znalazły się same przypadki Benign, a w liściu 17 znajduję się kilka Malignant. Podobny przypadek mamy z węzłęm 7 i liśćmi 14 oraz 15.
+
+### Błąd testowy
+
+```{r}
+set.seed(1)
+n <- nrow(ds)
+train <- sample(n, n / 2)
+test <- -train
+diagnosis_tree2 <- tree(diagnosis ~ . - id - diagnosis, data = ds, subset = train)
+tree_class <- predict(diagnosis_tree2, newdata = ds[test,], type = "class")
+table(tree_class, ds$diagnosis[test])
+mean(tree_class != ds$diagnosis[test])
+```
+
+Błąd na zbiorze testowym jest minimalnie większy niż na zbiorze treningowym, ale wynik na poziomie 6,7% jest całkiem satysfakcjonujący.
+
+```{r}
+plot(diagnosis_tree2)
+text(diagnosis_tree2, pretty = 0)
+```
+```{r}
+set.seed(1)
+diagnosis_cv <- cv.tree(diagnosis_tree2, FUN = prune.misclass)
+diagnosis_cv
+plot(diagnosis_cv$size, diagnosis_cv$dev, type = "b")
+```
+Można zauważyć że drzewo minimalnie mniejsze - które ma 6 liści, ma taki sam błąd, więc możemy uprościć drzewo, zachowując taką samą skuteczność.
+
+```{r}
+size_opt <- 6
+diagnosis_pruned <- prune.misclass(diagnosis_tree2, best = size_opt)
+plot(diagnosis_pruned)
+text(diagnosis_pruned, pretty = 0)
+```
+```{r}
+pruned_class <- predict(diagnosis_pruned, newdata = ds[test,], 
+                        type = "class")
+table(pruned_class, ds$diagnosis[test])
+mean(pruned_class != ds$diagnosis[test])
+```
+
+
+Jak widać zmniejszenie rozmiaru drzewa nie spowodowało wzrostu błędu, a dzięki temu otrzymaliśmy drzewo łatwiejsze w implementacji.
+
+## Drzewo regresyjne
+
+```{r}
+radius_tree <- tree(radius_mean ~ . -id, data = ds)
+summary(radius_tree)
+```
+
+Co ciekawe, otrzymaliśmy drzewo regresyjne, które bazuję tylko na jednym parametrze *area_mean*. Po głębszej analizie można zauważyć, że zmienne te są ze sobą dosyć mocno skorelowane.
+
+```{r}
+plot(radius_tree)
+text(radius_tree)
+```
+
+### Błąd testowy
+
+```{r}
+set.seed(1)
+n <- nrow(ds)
+train <- sample(n, n / 2)
+test <- -train
+radius_tree2 <- tree(radius_mean ~ . - id, data = ds, subset = train)
+radius_pred <- predict(radius_tree2, newdata = ds[test,])
+mean((radius_pred - ds$radius_mean[test])^2)
+```
+```{r}
+summary(radius_tree2)
+```
+
+Jak widać drzewo regresyjnę nauczone na zbiorzę treningowym, będący podzbiorem poprzedniego, wykorzustuje dwa predykatory. Residuals są bardzo podobne w obu wypadkach, samo drzewo ma również taką samą ilość liści jak poprzednio.
+
+```{r}
+plot(radius_tree2)
+text(radius_tree2)
+```
+
+```{r}
+radius_cv <- cv.tree(radius_tree2)
+plot(radius_cv$size, radius_cv$dev, type = "b")
+```
+Jak widać żadnę poddrzewo nie ma lepszego lub takiego samego błędu, więc w tym wypadku nie opłaca się go zmniejszać dla ułatwienia interpretacji. Co więcej w naszym przypadku drzewo to jest i tak dość proste w interpretacji z racji na dosyć dużą korelację z predykatorem *area_mean*. Można bardzo szybko wysunąć wniosek, że czym większa *area*, to *radius* też musi być większy.
+
+
+## Lasy losowe
