@@ -144,3 +144,46 @@ Jak widać żadnę poddrzewo nie ma lepszego lub takiego samego błędu, więc w
 
 
 ## Lasy losowe
+
+Regresja.
+
+```{r}
+library(randomForest)
+```
+
+```{r}
+set.seed(2)
+ds_rf <- randomForest(radius_mean ~ . -id - diagnosis, data = ds, subset = train,
+                         importance = TRUE)
+ds_pred_rf <- predict(ds_rf, newdata = ds[test,])
+mean((ds_pred_rf - ds$radius_mean[test])^2)
+```
+
+```{r}
+plot(ds_rf)
+```
+Jak widzimy nie ma sensu przekraczać 50-60 liczby drzew ponieważ nasz błąd nie spada jakoś radykalnie.
+
+```{r}
+summary(ds_rf)
+```
+
+Klasyfikacja
+
+```{r}
+set.seed(2)
+ds_rf <- randomForest(diagnosis ~ . - id, data = ds, subset = train,
+                         importance = TRUE)
+ds_pred_rf <- predict(ds_rf, newdata = ds[test,])
+```
+
+```{r}
+plot(ds_rf)
+```
+
+```{r}
+summary(ds_rf)
+```
+
+W tym przypadku widzimy nawet że jak zwiększymy liczbe drzew to błąd rośnie zatem tuaj takze nalezy ograniczyć tę liczbę.
+
